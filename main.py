@@ -8,8 +8,8 @@ import aiohttp
 import itertools
 from src import BiliUser
 
-log = logger.bind(user="B站粉丝牌助手")
-__VERSION__ = "0.3.8"
+log = logger.bind(user="🎖️ B站粉丝勋章自动挂亲密度小助手")
+__VERSION__ = "1.0.0"
 
 warnings.filterwarnings(
     "ignore",
@@ -41,7 +41,7 @@ try:
         diagnose=True,
         level=log_level,
     )
-    log = logger.bind(user="B站粉丝牌助手")
+    log = logger.bind(user="🎖️ B站粉丝勋章自动挂亲密度小助手")
 except Exception as e:
     log.error(f"读取配置文件失败,请检查配置文件格式是否正确: {e}")
     exit(1)
