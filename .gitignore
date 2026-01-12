@@ -13,3 +13,4 @@ fansmedal_weight.yaml
 venv/
 .idea/
 *.swp
+log.txt

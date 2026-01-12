@@ -126,6 +126,9 @@
 > - 相关配置信息
 
 ---
+部分参考项目
+
+https://github.com/XiaoMiku01/fansMedalHelper
 
 <div align="center">
 

@@ -154,7 +154,7 @@ class BiliLogin:
                     error_msg = result.get("message", "未知错误")
                     print(f"\n❌ 登录失败: {error_msg} (code: {code})")
                     return False
-                    
+
             except Exception as e:
                 print(f"\n❌ 请求错误: {e}")
                 time.sleep(3)
