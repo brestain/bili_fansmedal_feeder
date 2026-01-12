@@ -395,11 +395,14 @@ class BiliUser:
                         try:
                             entry_result = await self.api.entryRoom(room_id, target_id)
                             has_entered_room = True
-                            self.log.info(f"{room_name} 已进入直播间，entryRoom响应: {entry_result}")
+                            if self.verbose_log:
+                                self.log.info(f"{room_name} 已进入直播间，entryRoom响应: {entry_result}")
+                            else:
+                                self.log.info(f"{room_name} 已进入直播间")
                             if isinstance(entry_result, dict) and 'heartbeat_interval' in entry_result:
                                 server_interval = entry_result.get('heartbeat_interval', 60)
                                 heartbeat_interval = min(server_interval, 30)
-                                self.log.info(f"{room_name} 使用心跳间隔: {heartbeat_interval}秒（服务器建议: {server_interval}秒）")
+                                self.log.info(f"{room_name} 使用心跳间隔: {heartbeat_interval}秒")
                             # 保存 entryRoom 返回的时间戳，用于第一次心跳
                             if isinstance(entry_result, dict) and 'timestamp' in entry_result:
                                 entry_timestamp = entry_result.get('timestamp')
