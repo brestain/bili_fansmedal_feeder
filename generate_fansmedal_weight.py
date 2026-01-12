@@ -35,7 +35,7 @@ async def _collect_medals() -> Dict[int, Dict[str, Any]]:
     使用已有的 BiliUser / BiliApi 逻辑, 获取一次所有账号的粉丝牌列表.
 
     返回:
-        { target_id: { 'up_name': str, 'medal_name': str } }
+         { target_id: { 'up_name': str, 'medal_name': str } }
     """
     users_cfg = _load_users_config()
     medals_map: Dict[int, Dict[str, Any]] = {}

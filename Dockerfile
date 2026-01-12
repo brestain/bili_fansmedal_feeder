@@ -12,3 +12,4 @@ RUN apk add --no-cache git \
 WORKDIR /app/bili_fansmedal_feeder
 
 ENTRYPOINT ["/bin/sh","/app/bili_fansmedal_feeder/entrypoint.sh"]
+

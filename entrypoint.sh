@@ -7,7 +7,7 @@ set -e
 
 case ${MIRRORS} in
 "custom")
-    # custom
+    #  custom
     if [ -z "${CUSTOM_REPO+x}" ]; then
       echo -e "${Red} [ERR] 未配置自定义仓库链接！ ${Plain}"
       exit 1
