@@ -1,0 +1,45 @@
+#!/bin/sh
+Green="\\033[32m"
+Red="\\033[31m"
+Plain="\\033[0m"
+
+set -e
+
+case ${MIRRORS} in
+"custom")
+    # custom
+    if [ -z "${CUSTOM_REPO+x}" ]; then
+      echo -e "${Red} [ERR] 未配置自定义仓库链接！ ${Plain}"
+      exit 1
+    else
+      echo -e "${Green} [INFO] 使用自定义仓库 ${Plain}"
+      git remote set-url origin ${CUSTOM_REPO}
+    fi
+    ;;
+"0")
+    # https://github.com/
+    echo -e "${Green} [INFO] 使用源-GitHub ${Plain}"
+    git remote set-url origin https://github.com/brestain/bili_fansmedal_feeder.git
+    ;;
+"1")
+    # https://ghproxy.com/
+    echo -e "${Green} [INFO] 使用镜像源-GHProxy ${Plain}"
+    git remote set-url origin https://mirror.ghproxy.com/https://github.com/brestain/bili_fansmedal_feeder.git
+    ;;
+"2")
+    # http://GitClone.org/
+    echo -e "${Green} [INFO] 使用镜像源-GitClone ${Plain}"
+    git remote set-url origin https://GitClone.com/brestain/bili_fansmedal_feeder.git
+    ;;
+*)
+    echo -e "${Green} [INFO] 使用源-GitHub ${Plain}"
+    git remote set-url origin https://github.com/brestain/bili_fansmedal_feeder.git
+    ;;
+esac
+
+echo -e "${Green} [INFO] 拉取项目更新... ${Plain}"
+git config --global --add safe.directory "*"
+git pull --no-tags origin master
+
+echo -e "${Green} [INFO] 开始运行... ${Plain}"
+python3 main.py --auto
