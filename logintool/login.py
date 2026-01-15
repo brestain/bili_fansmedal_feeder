@@ -161,17 +161,27 @@ class BiliLogin:
 
     def _save_login_info(self, data: dict):
         """保存登录信息到文件"""
+        # 获取程序基目录（配置文件所在目录）
+        if getattr(sys, 'frozen', False):
+            # PyInstaller 打包后的情况
+            base_dir = os.path.dirname(sys.executable)
+        else:
+            # 开发环境
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        
         if self.access_key:
-            with open("access_key.txt", "w", encoding="utf-8") as f:
+            access_key_path = os.path.join(base_dir, "access_key.txt")
+            with open(access_key_path, "w", encoding="utf-8") as f:
                 f.write(self.access_key)
-            print(f"access_key 已保存到 access_key.txt")
+            print(f"access_key 已保存到 {access_key_path}")
         
         login_data = {
             "code": 0,
             "data": data,
             "ts": int(time.time())
         }
-        with open("login_info.json", "w", encoding="utf-8") as f:
+        login_info_path = os.path.join(base_dir, "login_info.json")
+        with open(login_info_path, "w", encoding="utf-8") as f:
             json.dump(login_data, f, ensure_ascii=False, indent=2)
 
     def is_login(self) -> Tuple[bool, str]:
@@ -190,7 +200,15 @@ class BiliLogin:
 
     def load_login_info(self) -> bool:
         """从文件加载登录信息"""
-        filename = "login_info.json"
+        # 获取程序基目录（配置文件所在目录）
+        if getattr(sys, 'frozen', False):
+            # PyInstaller 打包后的情况
+            base_dir = os.path.dirname(sys.executable)
+        else:
+            # 开发环境
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        
+        filename = os.path.join(base_dir, "login_info.json")
         if not os.path.exists(filename):
             return False
         try:
