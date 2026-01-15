@@ -14,7 +14,14 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # 读取配置文件，根据 VERBOSE_LOG 设置日志级别
 def _get_log_level_from_config():
     """从配置文件读取 VERBOSE_LOG，返回对应的日志级别"""
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    # 获取程序基目录（配置文件所在目录）
+    if getattr(sys, 'frozen', False):
+        # PyInstaller 打包后的情况
+        base_dir = os.path.dirname(sys.executable)
+    else:
+        # 开发环境
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    
     config_path = os.path.join(base_dir, "users.yaml")
     try:
         if os.path.exists(config_path):
@@ -64,7 +71,14 @@ class BiliUser:
         self.fansmedal_weights: Dict[str, Any] = self._load_fansmedal_weights()
 
     def _load_fansmedal_weights(self) -> Dict[str, Any]:
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        # 获取程序基目录（配置文件所在目录）
+        if getattr(sys, 'frozen', False):
+            # PyInstaller 打包后的情况
+            base_dir = os.path.dirname(sys.executable)
+        else:
+            # 开发环境
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        
         weight_path = os.path.join(base_dir, "fansmedal_weight.yaml")
         if not os.path.exists(weight_path):
             return {}

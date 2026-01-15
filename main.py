@@ -15,15 +15,32 @@ warnings.filterwarnings(
     "ignore",
     message="The localize method is no longer necessary, as this time zone supports the fold attribute",
 )
-os.chdir(os.path.dirname(os.path.abspath(__file__)).split(__file__)[0])
+
+
+def _get_base_dir() -> str:
+    """
+    获取程序基目录（配置文件所在目录）.
+    在 PyInstaller 打包后，返回 exe 文件所在目录；
+    否则返回脚本所在目录。
+    """
+    if getattr(sys, 'frozen', False):
+        # PyInstaller 打包后的情况
+        return os.path.dirname(sys.executable)
+    else:
+        # 开发环境
+        return os.path.dirname(os.path.abspath(__file__))
+
+
+base_dir = _get_base_dir()
+os.chdir(base_dir)
 
 try:
     if os.environ.get("USERS"):
         users = json.loads(os.environ.get("USERS"))
     else:
         import yaml
-
-        with open("users.yaml", "r", encoding="utf-8") as f:
+        config_path = os.path.join(base_dir, "users.yaml")
+        with open(config_path, "r", encoding="utf-8") as f:
             users = yaml.load(f, Loader=yaml.FullLoader)
     config = {
         "VERBOSE_LOG": users.get("VERBOSE_LOG", 1),  # 默认1表示详细日志

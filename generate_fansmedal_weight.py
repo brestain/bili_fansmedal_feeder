@@ -2,6 +2,7 @@ import asyncio
 import json
 import os
 import shutil
+import sys
 from typing import Dict, Any, Tuple, Optional
 
 from loguru import logger
@@ -10,6 +11,20 @@ from src import BiliUser
 
 
 log = logger.bind(user="粉丝牌权重生成工具")
+
+
+def _get_base_dir() -> str:
+    """
+    获取程序基目录（配置文件所在目录）.
+    在 PyInstaller 打包后，返回 exe 文件所在目录；
+    否则返回脚本所在目录。
+    """
+    if getattr(sys, 'frozen', False):
+        # PyInstaller 打包后的情况
+        return os.path.dirname(sys.executable)
+    else:
+        # 开发环境
+        return os.path.dirname(os.path.abspath(__file__))
 
 
 def _load_users_config() -> Dict[str, Any]:
@@ -21,8 +36,9 @@ def _load_users_config() -> Dict[str, Any]:
             users = json.loads(os.environ.get("USERS"))
         else:
             import yaml
-
-            with open("users.yaml", "r", encoding="utf-8") as f:
+            base_dir = _get_base_dir()
+            config_path = os.path.join(base_dir, "users.yaml")
+            with open(config_path, "r", encoding="utf-8") as f:
                 users = yaml.load(f, Loader=yaml.FullLoader)
         return users
     except Exception as e:  # pragma: no cover - 防御性日志
@@ -97,7 +113,8 @@ def _load_existing_weights(path: str) -> Tuple[Dict[str, Any], bool, Optional[st
             data = yaml.load(f, Loader=yaml.FullLoader) or {}
         except Exception as e:  # pragma: no cover
             # 格式错误，备份原文件
-            backup_path = "fansmedal_weight_backup.yaml"
+            base_dir = os.path.dirname(path)
+            backup_path = os.path.join(base_dir, "fansmedal_weight_backup.yaml")
             try:
                 shutil.copy2(path, backup_path)
                 log.warning(f"检测到 {path} 格式错误，已备份到 {backup_path}")
@@ -107,7 +124,8 @@ def _load_existing_weights(path: str) -> Tuple[Dict[str, Any], bool, Optional[st
             return {}, True, backup_path
     if not isinstance(data, dict):
         # 数据格式不正确，也视为格式错误
-        backup_path = "fansmedal_weight_backup.yaml"
+        base_dir = os.path.dirname(path)
+        backup_path = os.path.join(base_dir, "fansmedal_weight_backup.yaml")
         try:
             shutil.copy2(path, backup_path)
             log.warning(f"检测到 {path} 数据格式不正确，已备份到 {backup_path}")
@@ -136,8 +154,9 @@ async def main():
       medal_name: 某某粉丝牌
       weight: 100
     """
-    os.chdir(os.path.dirname(os.path.abspath(__file__)))
-    weight_file = "fansmedal_weight.yaml"
+    base_dir = _get_base_dir()
+    os.chdir(base_dir)
+    weight_file = os.path.join(base_dir, "fansmedal_weight.yaml")
 
     medals_map = await _collect_medals()
     if not medals_map:
