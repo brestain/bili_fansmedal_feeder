@@ -15,3 +15,6 @@ venv/
 *.swp
 log.txt
 build/
+*.spec
+build.bat
+build.py
