@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="bili_fansmedal_feeder_icon.jpg" width="200" height="200" alt="B站粉丝勋章自动挂亲密度小助手">
+  <img src="bili_fansmedal_feeder_icon.png" width="200" height="200" alt="B站粉丝勋章自动挂亲密度小助手">
 </p>
 
 <div align="center">
@@ -20,6 +20,8 @@
 - [🎖️ B站粉丝勋章自动挂亲密度小助手 ](#️-b站粉丝勋章自动挂亲密度小助手-)
   - [📑 目录 ](#-目录-)
   - [📖 简介 ](#-简介-)
+      - [白嫖获取经验方式](#白嫖获取经验方式)
+      - [项目功能](#项目功能)
 - [🚀 快速开始 ](#-快速开始-)
   - [Windows 使用](#windows-使用)
   - [Linux 使用](#linux-使用)
