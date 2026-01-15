@@ -64,10 +64,34 @@ except Exception as e:
     exit(1)
 
 
+def _add_user_file_logger(user_id: int, user_name: str):
+    """
+    为指定用户添加文件日志处理器
+    日志文件名为 {用户ID}.log，追加模式，每次运行前添加两行换行
+    """
+    log_file = os.path.join(base_dir, f"{user_id}.log")
+    
+    # 如果文件已存在，先添加两行换行
+    if os.path.exists(log_file):
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write("\n\n")
+    
+    # 添加文件日志处理器，只记录该用户的日志（根据用户名过滤）
+    logger.add(
+        log_file,
+        format="{time:YYYY-MM-DD HH:mm:ss} {extra[user]} {message}",
+        level=log_level,
+        encoding="utf-8",
+        enqueue=True,  # 异步写入，避免阻塞
+        filter=lambda record: record["extra"].get("user") == user_name,
+    )
+
+
 @log.catch
 async def main():
     messageList = []
     session = aiohttp.ClientSession(trust_env=True)
+    biliUsers = []  # 保存 BiliUser 对象引用
     initTasks = []
     startTasks = []
     catchMsg = []
@@ -79,11 +103,19 @@ async def main():
                 user.get("banned_uid", ""),
                 config,
             )
+            biliUsers.append(biliUser)  # 保存引用
             initTasks.append(biliUser.init())
             startTasks.append(biliUser.start())
             catchMsg.append(biliUser.sendmsg())
     try:
+        # 先执行初始化任务
         await asyncio.gather(*initTasks)
+        
+        # 为每个成功登录的用户添加文件日志处理器
+        for biliUser in biliUsers:
+            if hasattr(biliUser, 'isLogin') and biliUser.isLogin and hasattr(biliUser, 'mid') and biliUser.mid and hasattr(biliUser, 'name') and biliUser.name:
+                _add_user_file_logger(biliUser.mid, biliUser.name)
+        
         await asyncio.gather(*startTasks)
     except Exception as e:
         log.exception(e)

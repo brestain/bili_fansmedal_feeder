@@ -17,3 +17,5 @@ log.txt
 build/
 *.spec
 build.bat
+*.log
+
