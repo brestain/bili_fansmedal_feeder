@@ -79,6 +79,20 @@ class BiliUser:
             # 开发环境
             base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         
+        # 优先读取用户特定的权重文件
+        if hasattr(self, 'mid') and self.mid:
+            user_weight_path = os.path.join(base_dir, f"fansmedal_weight_{self.mid}.yaml")
+            if os.path.exists(user_weight_path):
+                try:
+                    with open(user_weight_path, "r", encoding="utf-8") as f:
+                        data = yaml.load(f, Loader=yaml.FullLoader) or {}
+                        if isinstance(data, dict):
+                            return data
+                except Exception as e:
+                    # 读取失败时不影响主流程, 只打日志
+                    logger.bind(user="粉丝牌权重").warning(f"读取 {user_weight_path} 失败: {e}")
+        
+        # 如果用户特定文件不存在，读取通用文件
         weight_path = os.path.join(base_dir, "fansmedal_weight.yaml")
         if not os.path.exists(weight_path):
             return {}
@@ -116,6 +130,8 @@ class BiliUser:
         if loginInfo['mid'] == 0:
             self.isLogin = False
             return False
+        # 登录成功后重新加载权重（优先使用用户特定的权重文件）
+        self.fansmedal_weights = self._load_fansmedal_weights()
         userInfo = await self.api.getUserInfo()
         if userInfo['medal']:
             medalInfo = await self.api.getMedalsInfoByUid(userInfo['medal']['target_id'])

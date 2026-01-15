@@ -18,4 +18,5 @@ build/
 *.spec
 build.bat
 *.log
+*.yaml
 

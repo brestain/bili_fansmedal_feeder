@@ -46,15 +46,15 @@ def _load_users_config() -> Dict[str, Any]:
         raise
 
 
-async def _collect_medals() -> Dict[int, Dict[str, Any]]:
+async def _collect_medals() -> Dict[int, Tuple[int, str, Dict[int, Dict[str, Any]]]]:
     """
     使用已有的 BiliUser / BiliApi 逻辑, 获取一次所有账号的粉丝牌列表.
 
     返回:
-         { target_id: { 'up_name': str, 'medal_name': str } }
+         { user_id: (user_id, user_name, { target_id: { 'up_name': str, 'medal_name': str } }) }
     """
     users_cfg = _load_users_config()
-    medals_map: Dict[int, Dict[str, Any]] = {}
+    user_medals_map: Dict[int, Tuple[int, str, Dict[int, Dict[str, Any]]]] = {}
 
     for user in users_cfg.get("USERS", []):
         access_key = user.get("access_key")
@@ -71,7 +71,11 @@ async def _collect_medals() -> Dict[int, Dict[str, Any]]:
             log.warning("账号登录失败，跳过该账号")
             continue
 
-        log.info(f"开始获取账号【{bili_user.name}】的粉丝牌列表")
+        user_id = bili_user.mid
+        user_name = bili_user.name
+        medals_map: Dict[int, Dict[str, Any]] = {}
+
+        log.info(f"开始获取账号【{user_name}】(ID: {user_id}) 的粉丝牌列表")
         async for medal in bili_user.api.getFansMedalandRoomID(verbose=False):
             medal_info = medal.get("medal", {})
             anchor_info = medal.get("anchor_info", {})
@@ -82,20 +86,20 @@ async def _collect_medals() -> Dict[int, Dict[str, Any]]:
             up_name = anchor_info.get("nick_name", "未知")
             medal_name = medal_info.get("medal_name", "")
 
-            # 后写覆盖前写无伤大雅, 以最后一次为准
             medals_map[target_id] = {
                 "up_name": up_name,
                 "medal_name": medal_name,
             }
 
+        user_medals_map[user_id] = (user_id, user_name, medals_map)
         await bili_user.session.close()
 
-    return medals_map
+    return user_medals_map
 
 
 def _load_existing_weights(path: str) -> Tuple[Dict[str, Any], bool, Optional[str]]:
     """
-    读取已存在的 fansmedal_weight.yaml, 不存在则返回空字典.
+    读取已存在的权重文件, 不存在则返回空字典.
     
     返回:
         (data, has_format_error, backup_path)
@@ -114,7 +118,10 @@ def _load_existing_weights(path: str) -> Tuple[Dict[str, Any], bool, Optional[st
         except Exception as e:  # pragma: no cover
             # 格式错误，备份原文件
             base_dir = os.path.dirname(path)
-            backup_path = os.path.join(base_dir, "fansmedal_weight_backup.yaml")
+            filename = os.path.basename(path)
+            # 如果文件名包含用户ID，备份文件名也包含用户ID
+            backup_filename = filename.replace(".yaml", "_backup.yaml")
+            backup_path = os.path.join(base_dir, backup_filename)
             try:
                 shutil.copy2(path, backup_path)
                 log.warning(f"检测到 {path} 格式错误，已备份到 {backup_path}")
@@ -125,7 +132,10 @@ def _load_existing_weights(path: str) -> Tuple[Dict[str, Any], bool, Optional[st
     if not isinstance(data, dict):
         # 数据格式不正确，也视为格式错误
         base_dir = os.path.dirname(path)
-        backup_path = os.path.join(base_dir, "fansmedal_weight_backup.yaml")
+        filename = os.path.basename(path)
+        # 如果文件名包含用户ID，备份文件名也包含用户ID
+        backup_filename = filename.replace(".yaml", "_backup.yaml")
+        backup_path = os.path.join(base_dir, backup_filename)
         try:
             shutil.copy2(path, backup_path)
             log.warning(f"检测到 {path} 数据格式不正确，已备份到 {backup_path}")
@@ -145,7 +155,7 @@ def _save_weights(path: str, data: Dict[str, Any]) -> None:
 
 async def main():
     """
-    获取一次粉丝牌列表, 生成/更新 fansmedal_weight.yaml.
+    获取一次粉丝牌列表, 为每个用户生成/更新 fansmedal_weight_{用户ID}.yaml.
 
     YAML 结构示例:
 
@@ -156,15 +166,14 @@ async def main():
     """
     base_dir = _get_base_dir()
     os.chdir(base_dir)
-    weight_file = os.path.join(base_dir, "fansmedal_weight.yaml")
 
-    medals_map = await _collect_medals()
-    if not medals_map:
-        log.warning("未获取到任何粉丝牌, 不生成 fansmedal_weight.yaml")
+    user_medals_map = await _collect_medals()
+    if not user_medals_map:
+        log.warning("未获取到任何账号的粉丝牌, 不生成任何权重文件")
         print("\n" + "=" * 60)
         print("任务完成")
         print("=" * 60)
-        print("未获取到任何粉丝牌，未生成 fansmedal_weight.yaml")
+        print("未获取到任何账号的粉丝牌，未生成任何权重文件")
         print("\n按任意键结束...")
         try:
             input()
@@ -172,82 +181,97 @@ async def main():
             pass
         return
 
-    existing, has_format_error, backup_path = _load_existing_weights(weight_file)
-    file_existed = os.path.exists(weight_file)
+    # 为每个用户生成单独的权重文件
+    total_users = len(user_medals_map)
+    processed_users = 0
+    
+    print("\n" + "=" * 60)
+    print("开始处理各账号的粉丝牌权重文件")
+    print("=" * 60)
+    
+    for user_id, (_, user_name, medals_map) in user_medals_map.items():
+        processed_users += 1
+        weight_file = os.path.join(base_dir, f"fansmedal_weight_{user_id}.yaml")
+        
+        if not medals_map:
+            log.warning(f"账号【{user_name}】(ID: {user_id}) 未获取到任何粉丝牌，跳过")
+            continue
+        
+        print(f"\n[{processed_users}/{total_users}] 处理账号【{user_name}】(ID: {user_id})")
+        
+        existing, has_format_error, backup_path = _load_existing_weights(weight_file)
+        file_existed = os.path.exists(weight_file)
 
-    updated = False
-    new_count = 0
-    updated_count = 0
-    for target_id, info in medals_map.items():
-        key = str(target_id)
-        if key not in existing:
-            # 新增条目, 默认权重 100
-            existing[key] = {
-                "up_name": info.get("up_name", "未知"),
-                "medal_name": info.get("medal_name", ""),
-                "weight": 100,
-            }
-            updated = True
-            new_count += 1
+        updated = False
+        new_count = 0
+        updated_count = 0
+        for target_id, info in medals_map.items():
+            key = str(target_id)
+            if key not in existing:
+                # 新增条目, 默认权重 100
+                existing[key] = {
+                    "up_name": info.get("up_name", "未知"),
+                    "medal_name": info.get("medal_name", ""),
+                    "weight": 100,
+                }
+                updated = True
+                new_count += 1
+            else:
+                # 已存在则仅同步 up_name / medal_name, 保留用户自定义的 weight
+                entry = existing[key] or {}
+                name_updated = False
+                if "up_name" not in entry or entry.get("up_name") != info.get("up_name"):
+                    entry["up_name"] = info.get("up_name", "未知")
+                    updated = True
+                    name_updated = True
+                if "medal_name" not in entry or entry.get("medal_name") != info.get("medal_name"):
+                    entry["medal_name"] = info.get("medal_name", "")
+                    updated = True
+                    name_updated = True
+                if name_updated:
+                    updated_count += 1
+                existing[key] = entry
+
+        # 保存文件（格式错误时也会覆盖原文件）
+        if updated or has_format_error or not file_existed:
+            _save_weights(weight_file, existing)
+            if has_format_error:
+                log.success(f"已重新生成 {weight_file}，共记录 {len(existing)} 个粉丝牌（默认权重为 100）")
+            elif not file_existed:
+                log.success(f"已生成 {weight_file}，共记录 {len(existing)} 个粉丝牌（默认权重为 100）")
+            else:
+                log.success(f"已更新 {weight_file}，共记录 {len(existing)} 个粉丝牌（默认权重为 100，未配置也视为 100）")
         else:
-            # 已存在则仅同步 up_name / medal_name, 保留用户自定义的 weight
-            entry = existing[key] or {}
-            name_updated = False
-            if "up_name" not in entry or entry.get("up_name") != info.get("up_name"):
-                entry["up_name"] = info.get("up_name", "未知")
-                updated = True
-                name_updated = True
-            if "medal_name" not in entry or entry.get("medal_name") != info.get("medal_name"):
-                entry["medal_name"] = info.get("medal_name", "")
-                updated = True
-                name_updated = True
-            if name_updated:
-                updated_count += 1
-            existing[key] = entry
-
-    # 保存文件（格式错误时也会覆盖原文件）
-    if updated or has_format_error or not file_existed:
-        _save_weights(weight_file, existing)
+            log.info(f"粉丝牌列表无新增或变更, {weight_file} 无需更新")
+        
+        # 打印该用户的处理结果
         if has_format_error:
-            log.success(f"已重新生成 {weight_file}，共记录 {len(existing)} 个粉丝牌（默认权重为 100）")
+            print(f"  ⚠️  检测到原文件格式错误！")
+            print(f"  原文件: {weight_file}")
+            if backup_path:
+                backup_full_path = os.path.abspath(backup_path)
+                print(f"  备份位置: {backup_full_path}")
+            print(f"  - 已重新生成文件，共记录 {len(existing)} 个粉丝牌")
         elif not file_existed:
-            log.success(f"已生成 {weight_file}，共记录 {len(existing)} 个粉丝牌（默认权重为 100）")
+            print(f"  ✅ 已生成新文件: {os.path.basename(weight_file)}")
+            print(f"  共记录 {len(existing)} 个粉丝牌（默认权重为 100）")
+        elif updated:
+            print(f"  ✅ 已更新文件: {os.path.basename(weight_file)}")
+            print(f"  共记录 {len(existing)} 个粉丝牌")
+            if new_count > 0:
+                print(f"    - 新增 {new_count} 个粉丝牌")
+            if updated_count > 0:
+                print(f"    - 更新 {updated_count} 个粉丝牌的名称信息")
         else:
-            log.success(f"已更新 {weight_file}，共记录 {len(existing)} 个粉丝牌（默认权重为 100，未配置也视为 100）")
-    else:
-        log.info("粉丝牌列表无新增或变更, fansmedal_weight.yaml 无需更新")
+            print(f"  ✅ 文件: {os.path.basename(weight_file)}")
+            print(f"  粉丝牌列表无新增或变更，文件无需更新")
+            print(f"  共记录 {len(existing)} 个粉丝牌")
 
-    # 打印结果摘要并等待用户按任意键结束
+    # 打印最终结果摘要并等待用户按任意键结束
     print("\n" + "=" * 60)
     print("任务完成")
     print("=" * 60)
-    
-    if has_format_error:
-        print("⚠️  检测到原文件格式错误！")
-        print(f"原文件: {weight_file}")
-        if backup_path:
-            backup_full_path = os.path.abspath(backup_path)
-            print(f"备份位置: {backup_full_path}")
-        print("  - 原文件存在 YAML 格式错误，无法正确解析")
-        print("  - 程序已自动备份原文件到上述位置")
-        print("  - 原文件已被覆盖，所有粉丝牌已使用默认权重 100")
-        print("  - 如果原文件中有自定义权重，请从备份文件中手动恢复")
-    elif not file_existed:
-        print(f"✅ 已生成新文件: {weight_file}")
-        print(f"共记录 {len(existing)} 个粉丝牌（默认权重为 100）")
-    elif updated:
-        print(f"✅ 已更新文件: {weight_file}")
-        print(f"共记录 {len(existing)} 个粉丝牌")
-        if new_count > 0:
-            print(f"  - 新增 {new_count} 个粉丝牌")
-        if updated_count > 0:
-            print(f"  - 更新 {updated_count} 个粉丝牌的名称信息")
-    else:
-        print(f"✅ 文件: {weight_file}")
-        print("粉丝牌列表无新增或变更，文件无需更新")
-        print(f"共记录 {len(existing)} 个粉丝牌")
-    
-    print("\n" + "=" * 60)
+    print(f"共处理 {processed_users} 个账号")
     print("\n按任意键结束...")
     try:
         input()
